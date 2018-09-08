@@ -1,22 +1,14 @@
 #!/usr/bin/python3
-import tkinter # note that module name has changed from Tkinter in Python 2 to tkinter in Python 3
-import os 
-from tkinter import *
-from scripts.regsetup import description
+import os
+import subprocess
+import sys
+from time import gmtime, strftime
 
 
 # dir_path = os.path.dirname(os.path.realpath(__file__))
 
 # ---------------------------------------- Functions ------------------------------------------------------------
 
-def center(toplevel):
-    toplevel.update_idletasks()
-    w = toplevel.winfo_screenwidth()
-    h = toplevel.winfo_screenheight()
-    size = tuple(int(_) for _ in toplevel.geometry().split('+')[0].split('x'))
-    x = w/2 - size[0]/2
-    y = h/2 - size[1]/2
-    toplevel.geometry("%dx%d+%d+%d" % (size + (x, y)))
 
 def ReadWorkpath() :
     if os.path.exists("settings.dat")==False:
@@ -27,9 +19,19 @@ def ReadWorkpath() :
         return os.getcwd()
     else :
         file = open('settings.dat', 'r')
-        tmp =  file.readline()
+        tmp =  file.readline().replace('\n','')
         file.close
         return tmp
+
+def ReadPlaylist(path) :
+    playlistfilepath = path + os.sep + "playlist.txt"
+    if (os.path.exists(playlistfilepath)) :
+        file = open(playlistfilepath, 'r')
+        ret = file.readline()
+        file.close
+    else :
+        ret = ""
+    return ret
     
 def FileGetExt(filename) :
     tmpstr=filename.split('.')
@@ -46,7 +48,7 @@ def FileGetNameWoExt(filename) :
     return (tmpstr[0])
 
 def GetCurFolder(path) :
-    tmpstr=path.split('\\')
+    tmpstr=path.split(os.sep)
     n=len(tmpstr)
     if (n==1) : 
         return ""            
@@ -57,68 +59,6 @@ def IsVidFile(filename) :
         return False
     else :
         return True
-    
-def ReadPlaylist(path) :
-    playlistfilepath = path + "\\playlist.txt"
-    if (os.path.exists(playlistfilepath)) :
-        file = open(playlistfilepath, 'r')
-        ret = file.readline()
-        file.close
-    else :
-        ret = ""
-    return ret
-
-def WriteNyuFile(nyufileName, nyuFilePath, title, description) :
-    print (test123.get('4.0', 'end-1c'))
-    return
-    
-def MyCallbacktest2() :
-    print ("callback2")
-    return
-
-def ShowNewVidFrame(vidpath, vidfile) :
-    ## Setup window
-    window = tkinter.Tk()
-    window.title("Filename: " + vidfile)
-    
-    
-    ## Title
-    l1 = Label(window, text="Title")
-    
-    strBaseTitle = GetCurFolder(vidpath)
-    lTitle = Label(window, text=strBaseTitle)
-    
-    ## Text
-    text = Text(window, height=15, width=80)
-    text.insert(INSERT, "Filename: " + vidfile + "\n")
-    text.insert(INSERT, "Filepath: " + vidpath + "\n")
-    if (playlist != "") :   
-        text.insert(INSERT, "Playlist: " + playlist + "\n")
-    else :
-        text.insert(INSERT, "No playlist.txt file found\n")
-    text.insert(INSERT, "Description:"+ "\n")
-    ## Buttons
-    bOk = Button(window, text="Ok", command = lambda: MyCallbacktest(text))
-    bCancel = Button(window, text="Cancel", command = MyCallbacktest2)    
-    
-    window.focus_force()
-    l1.pack()   
-    lTitle.grid(row=0, column=0)
-    lTitle.grid(row=0, column=1)
-    lTitle.grid(row=0, column=2)
-    text.focus()
-    text.pack()   
-    bOk.pack()
-    bCancel.pack()
-        
-    
-    ## paint window
-    center(window)
-    window.mainloop()    
-    
-    return    
-    
-
 
 # ---------------------------------------- Main ------------------------------------------------------------------
 # --- Settings
@@ -131,8 +71,22 @@ globStr = ""
 workpath = ""
 vidpath = ""
 playlist = ""
+config_post_shutdown = False
 
 # --- Src
+
+# Args verarbeiten
+
+print ("Anzahl Args : " + str(len(sys.argv)))
+
+if ( len(sys.argv) > 1) :
+    if (sys.argv[1] == "--shutdown") :
+        config_post_shutdown = True
+    if (sys.argv[1] == "-h") :
+	print("--shutdown = post shutdown")
+        exit(0);
+
+
 
 # Arbeitsordner finden
 workpath = ReadWorkpath()
@@ -140,56 +94,72 @@ print ("Workpath : " + workpath)
 
 # Suche nach Dirs
 for dir in os.listdir(workpath):     ## dir = der aktuelle Upload ordner !
-    if dir[0]=='.' :          ## ignore . files
+    curDir = workpath + os.sep + dir
+    if curDir[0]=='.' :          ## ignore . files
+        print(".")
         continue    
-    if os.path.isfile(dir):   ## ignore files 
+    if "System Volume" in curDir :
+        print ("skipping Windows folder: " + curDir)
+        continue
+    if os.path.isfile(curDir):   ## ignore files
+        print ("file ?")         
         continue           
-    elif os.path.isdir(dir):  ## Ordner gefunden ! Jetzt nach Files suchen        
-        vidpath = workpath + "\\" + dir
+    elif os.path.isdir(curDir):  ## Ordner gefunden ! Jetzt nach Files suchen        
+        vidpath = curDir 
         print ("Folder: " + vidpath)
         ## Step 1 : Suche nach playlist file        
-        playlist = ReadPlaylist(vidpath) 
-        print("playlist: " + playlist)
+        playlist = ReadPlaylist(vidpath)       
         ## Step 2 : Suche nach VidFiles        
         for vidFile in os.listdir(vidpath):            
-            if os.path.isfile(vidpath + "\\" + vidFile):   ## file gefunden!
+            if os.path.isfile(vidpath + os.sep + vidFile):   ## file gefunden!
                 # print ("File : " + vidFile)   
                 if (not(IsVidFile(vidFile))) :
                     continue        ## ignore non vid files 
                 else :
+                    print("--------------------------------------------------")
                     print("Videofile: " + vidFile)
                     # Step 3 .. Search for nyu- upload settings file
-                    nyufileName = FileGetNameWoExt(vidFile) + ".nyu"
-                    if (not(os.path.exists(nyufileName))) :     # Gibt es kein Setting file ?                         
-                         ShowNewVidFrame(vidpath, vidFile)
-                         pass             
+                    nyufileName = vidFile + ".nyu"
+                    donefileName = vidFile + ".done"
+                    if (not(os.path.exists(vidpath + os.sep + nyufileName))) :     # Gibt es kein Setting file ?                         
+                         print("No nyu-config for : " + vidpath + os.sep + vidFile)                                      
                     else :
-                        # kann gelöscht werden wenn gewollt
-                        pass        # << das heißt to be done                        
+                        # nyu file existiert .. evtl auch schon ein done file ?
+                        if (os.path.exists(vidpath + os.sep + donefileName)) :
+                            # nachfrage ob alles geloescht werden soll                            
+                            print(vidFile + " can be deleted .. it is already uploaded")
+                        else :
+                            # ok noch nicht uploaded .. lesen des nyu files und upload starten
+                            nyuconfigfile = open(vidpath + os.sep + nyufileName, 'r')
+                            vidTitle =  nyuconfigfile.readline().replace('\n','').replace('\r','')
+                            vidDesc =  nyuconfigfile.readline().replace('\n','').replace('\r','')
+                            nyuconfigfile.close()
+                            print ("Title : " + vidTitle)    
+                            print ("Desc  : " + vidDesc) 
+                            if (playlist != "") :
+                                print ("Playlist : " + playlist)  
+                            # ok los gehts mit dem upload 
+                            keyfile = workpath + os.sep + "key" + os.sep + "key.json"
+                            cmd = "youtube-upload -t \"" + vidTitle+ "\" -d \"" + vidDesc + "\" --client-secrets=\"" + keyfile  + "\" --playlist \"" + playlist + "\" \"" + vidpath + os.sep + vidFile + "\""
+                            print ("cmd: " , cmd)
+                            process = subprocess.Popen(cmd, shell=True)
+                            process.wait()
+                            retcode = process.returncode
+                            print ("retcode : " + str(retcode))
+                            if (retcode == 0) : 
+                                fdone = open(vidpath + os.sep + donefileName,"w")
+                                fdone.write(str(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
+                                fdone.close()
+                            else :
+                                print ("Retcode invalid")
             else :
-                print ("kein file " + vidFile)            
+                print ("kein file " + vidFile)
     else :                  ## alles andere ignon
-        continue    
-
+        continue
+if (config_post_shutdown == True) :
+	print("shutting down now");
+	##p = subprocess.Popen("sudo shutdown -h now", shell=True)
+	##p.wait()
 exit()
 
 
-
-
-
-
-
-
-
-top = tkinter.Tk()
-# Code to add widgets will go here...
-top.mainloop()
-exit()
-
-
-# Ab hier MUELL !
-# -- string splitten für Path für max Dir
-# str1=os.getcwd()
-# str2=str1.split('\\')
-# n=len(str2)
-# print str2[n-1]
