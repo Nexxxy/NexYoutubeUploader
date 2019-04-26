@@ -28,7 +28,7 @@ def ReadWorkpath() :
         return os.getcwd()
     else :
         file = open('settings.dat', 'r')
-        tmp =  file.readline()
+        tmp =  file.readline().rstrip()
         file.close
         return tmp
     
@@ -177,7 +177,7 @@ def ShowNewVidFrame(vidpath, vidfile) :
 # ---------------------------------------- Main ------------------------------------------------------------------
 # --- Settings
 
-allowedVidFileExt = ['mp4','flv']
+allowedVidFileExt = ['mp4','flv','ts']
 
 # --- glob. Vars
 

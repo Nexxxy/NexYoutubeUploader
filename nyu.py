@@ -63,7 +63,7 @@ def IsVidFile(filename) :
 # ---------------------------------------- Main ------------------------------------------------------------------
 # --- Settings
 
-allowedVidFileExt = ['mp4','flv']
+allowedVidFileExt = ['mp4','flv','ts']
 
 # --- glob. Vars
 
