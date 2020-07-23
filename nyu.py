@@ -27,11 +27,13 @@ def ReadPlaylist(path) :
     playlistfilepath = path + os.sep + "playlist.txt"
     if (os.path.exists(playlistfilepath)) :
         file = open(playlistfilepath, 'r')
-        ret = file.readline()
+        playlist = file.readline().strip().replace('\n','').replace('\r','')
+        playlist_link = file.readline().strip().replace('\n','').replace('\r','')
         file.close
     else :
-        ret = ""
-    return ret
+        playlist = ""
+        playlist_link = ""
+    return playlist, playlist_link
     
 def FileGetExt(filename) :
     tmpstr=filename.split('.')
@@ -83,7 +85,7 @@ if ( len(sys.argv) > 1) :
     if (sys.argv[1] == "--shutdown") :
         config_post_shutdown = True
     if (sys.argv[1] == "-h") :
-	print("--shutdown = post shutdown")
+        print("--shutdown = post shutdown")
         exit(0);
 
 
@@ -108,7 +110,7 @@ for dir in os.listdir(workpath):     ## dir = der aktuelle Upload ordner !
         vidpath = curDir 
         print ("Folder: " + vidpath)
         ## Step 1 : Suche nach playlist file        
-        playlist = ReadPlaylist(vidpath)       
+        playlist,playlist_link = ReadPlaylist(vidpath)       
         ## Step 2 : Suche nach VidFiles        
         for vidFile in os.listdir(vidpath):            
             if os.path.isfile(vidpath + os.sep + vidFile):   ## file gefunden!
@@ -131,8 +133,10 @@ for dir in os.listdir(workpath):     ## dir = der aktuelle Upload ordner !
                         else :
                             # ok noch nicht uploaded .. lesen des nyu files und upload starten
                             nyuconfigfile = open(vidpath + os.sep + nyufileName, 'r')
-                            vidTitle =  nyuconfigfile.readline().replace('\n','').replace('\r','')
-                            vidDesc =  nyuconfigfile.readline().replace('\n','').replace('\r','')
+                            vidTitle =  nyuconfigfile.readline().replace('\n','').replace('\r','').replace("\\n",'')
+                            vidDesc =  nyuconfigfile.readline().replace("\\n",'\n').replace('\r','')
+                            if (playlist_link != "") :
+                                vidDesc = vidDesc + "\n\n------------\nplaylist:\n" + playlist_link
                             nyuconfigfile.close()
                             print ("Title : " + vidTitle)    
                             print ("Desc  : " + vidDesc) 
