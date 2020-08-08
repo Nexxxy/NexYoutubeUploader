@@ -1,8 +1,9 @@
-#!/usr/bin/python3
+# -*- coding: cp1252 -*-
 import tkinter # note that module name has changed from Tkinter in Python 2 to tkinter in Python 3
 import os 
 from tkinter import *
 from tkinter import messagebox
+import tkinter.font as tkFont
 
 
 # dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -75,18 +76,47 @@ def convertStringForYoutube(inputStr) :
 def convertStringForYoutubeRmNewLines(inputStr) :
     return inputStr.replace('\n',"").replace('\r','')    
 
+def umlautConverter(inputStr) :
+    retVal = inputStr 
+    x = 0
+    while (x < len(retVal)) :
+        if retVal[x].encode("utf-8")   == b'\xc3\xa4' :
+            if ( (x+1) <= len(retVal)):
+                retVal = retVal[:x] + u"\u00e4" + retVal[x+1:]
+            else :
+                retVal = retVal[:x] + u"\u00e4"
+        elif retVal[x].encode("utf-8") == b'\xc3\xb6' :
+            if ( (x+1) <= len(retVal)):
+                retVal = retVal[:x] + u"\u00f6" + retVal[x+1:]
+            else :
+                retVal = retVal[:x] + u"\u00f6"
+        elif retVal[x].encode("utf-8") ==  b'\xc3\xbc' :
+            if ( (x+1) <= len(retVal)):
+                retVal = retVal[:x] + u"\u00fc" + retVal[x+1:]
+            else :
+                retVal = retVal[:x] + u"\u00fc"
+        #print(x , retVal[x], retVal[x].encode("utf8"))
+        x += 1
+    return retVal
+
 def WriteNyuFile(windowHandle, nyufileName, nyuFilePath, title, titleAddy, description) :
-    fullVidTitle = convertStringForYoutubeRmNewLines(title)
-    description = convertStringForYoutube(description)
+    fullVidTitle = umlautConverter(convertStringForYoutubeRmNewLines(title))
+    description = umlautConverter(convertStringForYoutube(description))
+
+    #print ("Type: " + str(type(description)))
+    description = description[len("description:\\n"):]
+
     if (titleAddy == "") : 
         pass # do nothing
     else :
-        fullVidTitle += (" - " + titleAddy)
+        fullVidTitle += (" - " + titleAddy)   
+
     
     print ("VideoTitle: " + fullVidTitle)
     print ("Description: " + description)
-    print ("Writing File: " + nyuFilePath + os.sep + nyufileName)
-    file = open(nyuFilePath + os.sep + nyufileName, 'w')
+    print ("Writing File: " + nyuFilePath + os.sep + nyufileName)    
+
+    file = open(nyuFilePath + os.sep + nyufileName, 'w', encoding="utf8")
     file.write(fullVidTitle + "\n" + description)
     file.close()
     windowHandle.withdraw()
@@ -127,14 +157,18 @@ def ShowNewVidFrame(vidpath, vidfile) :
     
     
     ## Text
+    # myFont = tkFont.Font(family="Arial", size = 14) # Test with other Font Family
+    # text = Text(window, height=15, width=80, font=myFont)
+    
     text = Text(window, height=15, width=80)
-    text.insert(INSERT, "Filename: " + vidfile + "\n")
-    text.insert(INSERT, "Filepath: " + vidpath + "\n")
+    text.insert(INSERT, u"Filename: " + vidfile + "\n")
+    text.insert(INSERT, u"Filepath: " + vidpath + "\n")
     if (playlist != "") :   
-        text.insert(INSERT, "Playlist: " + playlist + "\n")
+        text.insert(INSERT, u"Playlist: " + playlist + "\n")
     else :
-        text.insert(INSERT, "No playlist.txt file found\n")
-    text.insert(INSERT, "Description:"+ "\n")
+        text.insert(INSERT, u"No playlist.txt file found\n")
+    text.insert(INSERT, u"Description:"+ "\n")
+    text.insert(INSERT, u"\u00b0 ööööä##")
     ## Buttons
     bOk = Button(window, text="Ok", command = lambda: WriteNyuFile(
                  window,
@@ -167,7 +201,8 @@ def ShowNewVidFrame(vidpath, vidfile) :
     
     ## paint window
     window.focus_force()
-    text.focus()    
+    eTitleAddy.focus()
+    # text.focus()        
     center(window)
     window.mainloop()        
     return    
@@ -177,7 +212,7 @@ def ShowNewVidFrame(vidpath, vidfile) :
 # ---------------------------------------- Main ------------------------------------------------------------------
 # --- Settings
 
-allowedVidFileExt = ['mp4','flv','ts']
+allowedVidFileExt = ['mp4','flv','ts','m2ts']
 
 # --- glob. Vars
 
@@ -209,7 +244,7 @@ for dir in os.listdir(workpath):     ## dir = der aktuelle Upload ordner !
         print ("Folder: " + vidpath)
         ## Step 1 : Suche nach playlist file        
         playlist = ReadPlaylist(vidpath)
-        if (playlist is not "") : 
+        if (playlist != "") : 
             print("playlist: " + playlist)
         ## Step 2 : Suche nach VidFiles   
         for vidFile in os.listdir(vidpath):            
