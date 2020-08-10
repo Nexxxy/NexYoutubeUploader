@@ -167,8 +167,7 @@ def ShowNewVidFrame(vidpath, vidfile) :
         text.insert(INSERT, u"Playlist: " + playlist + "\n")
     else :
         text.insert(INSERT, u"No playlist.txt file found\n")
-    text.insert(INSERT, u"Description:"+ "\n")
-    text.insert(INSERT, u"\u00b0 ööööä##")
+    text.insert(INSERT, u"Description:"+ "\n")    
     ## Buttons
     bOk = Button(window, text="Ok", command = lambda: WriteNyuFile(
                  window,

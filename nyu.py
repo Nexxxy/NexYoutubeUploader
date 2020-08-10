@@ -132,21 +132,25 @@ for dir in os.listdir(workpath):     ## dir = der aktuelle Upload ordner !
                             print(vidFile + " can be deleted .. it is already uploaded")
                         else :
                             # ok noch nicht uploaded .. lesen des nyu files und upload starten
-                            nyuconfigfile = open(vidpath + os.sep + nyufileName, 'r')
+                            nyuconfigfile = open(vidpath + os.sep + nyufileName, encoding='utf8')
                             vidTitle =  nyuconfigfile.readline().replace('\n','').replace('\r','').replace("\\n",'')
                             vidDesc =  nyuconfigfile.readline().replace("\\n",'\n').replace('\r','')
+
                             if (playlist_link != "") :
                                 vidDesc = vidDesc + "\n\n------------\nplaylist:\n" + playlist_link
                             nyuconfigfile.close()
                             print ("Title : " + vidTitle)    
-                            print ("Desc  : " + vidDesc) 
+                            # print ("Desc  : " + vidDesc) 
+                            print ("Desc : <hidden>")
                             if (playlist != "") :
                                 print ("Playlist : " + playlist)  
                             # ok los gehts mit dem upload 
                             keyfile = workpath + os.sep + "key" + os.sep + "key.json"
                             cmd = "youtube-upload -t \"" + vidTitle+ "\" -d \"" + vidDesc + "\" --client-secrets=\"" + keyfile  + "\" --playlist \"" + playlist + "\" \"" + vidpath + os.sep + vidFile + "\""
-                            print ("cmd: " , cmd)
-                            process = subprocess.Popen(cmd, shell=True)
+                            # print ("cmd: " , cmd)
+                            print ("starting upload")
+                            # cmd = "export PYTHONIOENCODING=UTF-8 && " + cmd
+                            process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                             process.wait()
                             retcode = process.returncode
                             print ("retcode : " + str(retcode))
@@ -154,16 +158,20 @@ for dir in os.listdir(workpath):     ## dir = der aktuelle Upload ordner !
                                 fdone = open(vidpath + os.sep + donefileName,"w")
                                 fdone.write(str(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
                                 fdone.close()
+                            elif (retcode == 3) :
+                                print ("Looks like you'r out of GoogleQuota :)")
+                                exit(3)
                             else :
                                 print ("Retcode invalid")
+                                exit(retcode)
             else :
                 print ("kein file " + vidFile)
     else :                  ## alles andere ignon
         continue
 if (config_post_shutdown == True) :
-	print("shutting down now");
-	##p = subprocess.Popen("sudo shutdown -h now", shell=True)
-	##p.wait()
+    print("shutting down now");
+    p = subprocess.Popen("sudo shutdown -h now", shell=True)
+    p.wait()
 exit()
 
 
