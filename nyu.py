@@ -23,17 +23,25 @@ def ReadWorkpath() :
         file.close
         return tmp
 
+## Read playlist.txt file
+## Line 1 : playlist name
+## Line 2 : playlist link
+## Line 3 : All video privacy
 def ReadPlaylist(path) :
     playlistfilepath = path + os.sep + "playlist.txt"
     if (os.path.exists(playlistfilepath)) :
         file = open(playlistfilepath, 'r')
         playlist = file.readline().strip().replace('\n','').replace('\r','')
         playlist_link = file.readline().strip().replace('\n','').replace('\r','')
+        video_privacy = file.readline().strip().replace('\n','').replace('\r','')
+        if (not(video_privacy == "unlisted" or video_privacy == "public" or video_privacy == "private")) :
+            video_privacy = "public"             
         file.close
     else :
         playlist = ""
         playlist_link = ""
-    return playlist, playlist_link
+        video_privacy = "public"
+    return playlist, playlist_link, video_privacy
     
 def FileGetExt(filename) :
     tmpstr=filename.split('.')
@@ -81,12 +89,16 @@ config_post_shutdown = False
 
 print ("Anzahl Args : " + str(len(sys.argv)))
 
+program_option_verbose = False
 if ( len(sys.argv) > 1) :
     if (sys.argv[1] == "--shutdown") :
         config_post_shutdown = True
     if (sys.argv[1] == "-h") :
         print("--shutdown = post shutdown")
         exit(0);
+    if (sys.argv[1] == "-v") :
+        print("verbose mode on")
+        program_option_verbose = True
 
 
 
@@ -109,9 +121,9 @@ for dir in os.listdir(workpath):     ## dir = der aktuelle Upload ordner !
     elif os.path.isdir(curDir):  ## Ordner gefunden ! Jetzt nach Files suchen        
         vidpath = curDir 
         print ("Folder: " + vidpath)
-        ## Step 1 : Suche nach playlist file        
-        playlist,playlist_link = ReadPlaylist(vidpath)       
-        ## Step 2 : Suche nach VidFiles        
+        ## Step 1 : Search for playlist file (Filestructure is inside this func)                
+        playlist,playlist_link,video_privacy = ReadPlaylist(vidpath)       
+        ## Step 2 : Search for VidFiles        
         for vidFile in os.listdir(vidpath):            
             if os.path.isfile(vidpath + os.sep + vidFile):   ## file gefunden!
                 # print ("File : " + vidFile)   
@@ -123,6 +135,8 @@ for dir in os.listdir(workpath):     ## dir = der aktuelle Upload ordner !
                     # Step 3 .. Search for nyu- upload settings file
                     nyufileName = vidFile + ".nyu"
                     donefileName = vidFile + ".done"
+                    logfileName = "uploadedFiles.txt"
+
                     if (not(os.path.exists(vidpath + os.sep + nyufileName))) :     # Gibt es kein Setting file ?                         
                          print("No nyu-config for : " + vidpath + os.sep + vidFile)                                      
                     else :
@@ -146,23 +160,39 @@ for dir in os.listdir(workpath):     ## dir = der aktuelle Upload ordner !
                                 print ("Playlist : " + playlist)  
                             # ok los gehts mit dem upload 
                             keyfile = workpath + os.sep + "key" + os.sep + "key.json"
-                            cmd = "youtube-upload -t \"" + vidTitle+ "\" -d \"" + vidDesc + "\" --client-secrets=\"" + keyfile  + "\" --playlist \"" + playlist + "\" \"" + vidpath + os.sep + vidFile + "\""
-                            # print ("cmd: " , cmd)
+                            cmd = "youtube-upload -t \"" + vidTitle+ "\" -d \"" + vidDesc + "\" " \
+                                  "--client-secrets=\"" + keyfile  + "\" " \
+                                  "--playlist \"" + playlist + "\" " \
+                                  "--privacy " + video_privacy + " " \
+                                  "\"" + vidpath + os.sep + vidFile + "\""
+                                  
+                            if (program_option_verbose) : 
+                                print ("cmd: " , cmd)
                             print ("starting upload")
                             # cmd = "export PYTHONIOENCODING=UTF-8 && " + cmd
                             process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-                            process.wait()
+                            p_output, p_errors = process.communicate()
                             retcode = process.returncode
                             print ("retcode : " + str(retcode))
                             if (retcode == 0) : 
+                                # create done file
                                 fdone = open(vidpath + os.sep + donefileName,"w")
                                 fdone.write(str(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
+                                if (program_option_verbose) :                                    
+                                    print("output:\n" + p_output)
+                                fdone.close()
+                                # append to logfile
+                                fdone = open(vidpath + os.sep + logfileName,"a")
+                                fdone.write(str(strftime("%Y-%m-%d %H:%M:%S", gmtime())) + "   -   " + vidFile + "\n")
                                 fdone.close()
                             elif (retcode == 3) :
                                 print ("Looks like you'r out of GoogleQuota :)")
+                                print("Output : \n" + p_output)
+                                print("Errors: \n" + p_errors)
                                 exit(3)
                             else :
                                 print ("Retcode invalid")
+                                print (p_errors)
                                 exit(retcode)
             else :
                 print ("kein file " + vidFile)
