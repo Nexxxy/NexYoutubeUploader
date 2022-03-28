@@ -70,6 +70,22 @@ def ReadPlaylist(path) :
         ret = ""
     return ret
 
+def ReadTitlesFile(path, titles_dict):
+    titlesFilepath = path + os.sep + titles_file_name
+    if (os.path.exists(titlesFilepath)) :
+        # read everything
+        file = open(titlesFilepath, 'r', encoding="utf-8")
+        lines = file.readlines()
+        file.close
+        for line in lines :
+            #prepare line
+            curline = line.strip().replace('\n','').replace('\r','')
+            if len(curline) > 0 :
+                x = line.split(" - ")
+                titles_dict[x[0]] = x[1] 
+            continue        
+    return
+
 def convertStringForYoutube(inputStr) :
     return inputStr.replace('\n',"\\n").replace('\r','')       
 
@@ -145,7 +161,12 @@ def ShowNewVidFrame(vidpath, vidfile) :
     
     strBaseTitle = GetCurFolder(vidpath)
     strVidNumber = " #" + str(FileGetNameWoExt(vidfile))
-    TitleAddy = StringVar("")
+    # add dynamic title addy
+    TitleAddy = StringVar("")    
+    print ("searching for " + FileGetNameWoExt(vidfile))
+    if (FileGetNameWoExt(vidfile) in titles_dict) :
+        print("found it " + titles_dict[FileGetNameWoExt(vidfile)])
+        TitleAddy.set(titles_dict[FileGetNameWoExt(vidfile)])    
     
     
     lBaseTitle = Label(window, text=strBaseTitle)    
@@ -215,12 +236,27 @@ allowedVidFileExt = ['mp4','flv','ts','m2ts']
 
 # --- glob. Vars
 
+titles_file_name = "Titles.txt"
+titles_dict = {}
 globStr = ""
 workpath = ""
 vidpath = ""
 playlist = ""
+config_auto_clear = False;
 
 # --- Src
+
+# --- scan args
+
+print ("Anzahl Args : " + str(len(sys.argv)))
+
+program_option_verbose = False
+if ( len(sys.argv) > 1) :
+    if (sys.argv[1] == "--clear") :
+        config_auto_clear = True
+    if (sys.argv[1] == "-h") :
+        print("--clear = auto yes clear usb stick")
+        exit(0);    
 
 # Arbeitsordner finden
 workpath = ReadWorkpath()
@@ -245,7 +281,12 @@ for dir in os.listdir(workpath):     ## dir = der aktuelle Upload ordner !
         playlist = ReadPlaylist(vidpath)
         if (playlist != "") : 
             print("playlist: " + playlist)
-        ## Step 2 : Suche nach VidFiles   
+        ## Step 2 : Search for Titels.txt
+        titles_dict = {} # reset db   
+        ReadTitlesFile(vidpath, titles_dict)
+        # print (titles_dict)
+                
+        ## Step 3 : Suche nach VidFiles   
         for vidFile in os.listdir(vidpath):            
             if os.path.isfile(vidpath + os.sep + vidFile):   ## file gefunden!
                 # print ("File : " + vidFile)   
@@ -261,14 +302,19 @@ for dir in os.listdir(workpath):     ## dir = der aktuelle Upload ordner !
                     else :
                         # nyu file existiert .. evtl auch schon ein done file ?
                         if (os.path.exists(vidpath + os.sep + donefileName)) :
-                            # nachfrage ob alles gelöscht werden soll
-                            
-                            rootWindow = tkinter.Tk()
-                            center(rootWindow)
-                            rootWindow.withdraw()
-                            result = messagebox.askyesno("Delete?",vidpath + os.sep + vidFile + " can be deleted .. it is already uploaded" , icon='warning')
-                            rootWindow.quit()
-                            rootWindow.destroy() 
+                            # ask user if everything should be deleted
+                            result = False
+                            # check if autoclear is set
+                            if (config_auto_clear == True) :                                
+                                result = True
+                            else :
+                                rootWindow = tkinter.Tk()
+                                center(rootWindow)
+                                rootWindow.withdraw()
+                                result = messagebox.askyesno("Delete?",vidpath + os.sep + vidFile + " can be deleted .. it is already uploaded" , icon='warning')
+                                rootWindow.quit()
+                                rootWindow.destroy()
+                                 
                             if result == True :
                                 os.remove(vidpath + os.sep + vidFile)
                                 os.remove(vidpath + os.sep + nyufileName)
