@@ -4,6 +4,7 @@ import os
 from tkinter import *
 from tkinter import messagebox
 import tkinter.font as tkFont
+import argparse
 
 
 # dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -250,13 +251,28 @@ config_auto_clear = False;
 
 print ("Anzahl Args : " + str(len(sys.argv)))
 
+parser = argparse.ArgumentParser(description='Nex Youtube Upload Helper GUI - Helpsection for ARGS')
+parser.add_argument('--clear', dest='clearFlag', nargs='?', default="false", help='No delete confirmation // auto yes clear for target usbstick')
+parser.add_argument('--verbose', dest='verboseFlag', nargs='?', default="false", help='verbose mode on')
+
+args = parser.parse_args()
+
+# Args sind in args.<destname von oben> z.b args.name
+
 program_option_verbose = False
-if ( len(sys.argv) > 1) :
-    if (sys.argv[1] == "--clear") :
-        config_auto_clear = True
-    if (sys.argv[1] == "-h") :
-        print("--clear = auto yes clear usb stick")
-        exit(0);    
+
+# we have to search for that arg which will be defaulted to false -> If its present its None
+
+if (args.clearFlag == None) :
+    print("Autoclear is active -> no confirmation will be needed to delete files")
+    config_auto_clear = True
+else :
+    config_auto_clear = False
+if (args.verboseFlag == None) :
+    config_verbose = True # Not used up to now
+else :
+    config_verbose = False  # Not used up to now
+
 
 # Arbeitsordner finden
 workpath = ReadWorkpath()
