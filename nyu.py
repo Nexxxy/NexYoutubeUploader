@@ -1,7 +1,8 @@
-#!/usr/bin/python3
+##!/usr/bin/python3
 import os
 import subprocess
 import sys
+import progressbar
 from time import gmtime, strftime
 
 
@@ -93,8 +94,9 @@ program_option_verbose = False
 if ( len(sys.argv) > 1) :
     if (sys.argv[1] == "--shutdown") :
         config_post_shutdown = True
-    if (sys.argv[1] == "-h") :
+    if (sys.argv[1] == "-h" or sys.argv[1] == "--help") :
         print("--shutdown = post shutdown")
+        print("-v = verbose mode on")
         exit(0);
     if (sys.argv[1] == "-v") :
         print("verbose mode on")
@@ -106,8 +108,13 @@ if ( len(sys.argv) > 1) :
 workpath = ReadWorkpath()
 print ("Workpath : " + workpath)
 
+vidCounter = 0
+vidMaxCount = 1
+
 # Suche nach Dirs
 for dir in os.listdir(workpath):     ## dir = der aktuelle Upload ordner !
+    if (vidCounter >= vidMaxCount) :
+        break
     curDir = workpath + os.sep + dir
     if curDir[0]=='.' :          ## ignore . files
         print(".")
@@ -125,6 +132,8 @@ for dir in os.listdir(workpath):     ## dir = der aktuelle Upload ordner !
         playlist,playlist_link,video_privacy = ReadPlaylist(vidpath)       
         ## Step 2 : Search for VidFiles        
         for vidFile in os.listdir(vidpath):            
+            if (vidCounter >= vidMaxCount) :
+                break
             if os.path.isfile(vidpath + os.sep + vidFile):   ## file gefunden!
                 # print ("File : " + vidFile)   
                 if (not(IsVidFile(vidFile))) :
@@ -164,38 +173,51 @@ for dir in os.listdir(workpath):     ## dir = der aktuelle Upload ordner !
                                   "--client-secrets=\"" + keyfile  + "\" " \
                                   "--playlist \"" + playlist + "\" " \
                                   "--privacy " + video_privacy + " " \
-                                  "\"" + vidpath + os.sep + vidFile + "\""
+                                  "\"" + vidpath + os.sep + vidFile + "\"" + " " \
+                                  "" # ">> " + str(strftime("%Y-%m-%d-%H-%M-%S", gmtime())) + "." + vidFile + ".ytlog"
                                   
                             if (program_option_verbose) : 
                                 print ("cmd: " , cmd)
-                            print ("starting upload")
+                            
+                            print ("starting upload: " + str(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
+
                             # cmd = "export PYTHONIOENCODING=UTF-8 && " + cmd
-                            process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+                            #process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+                            process = subprocess.Popen(cmd, shell=True, universal_newlines=True)
                             p_output, p_errors = process.communicate()
                             retcode = process.returncode
-                            print ("retcode : " + str(retcode))
-                            if (retcode == 0) : 
+                            print (str(strftime("%Y-%m-%d %H:%M:%S  ", gmtime())) + "retcode : " + str(retcode))
+
+                            # We are fine from here on ! Upload was successful !
+                            if (retcode == 0 or retcode == 3) : 
+                                if (retcode == 3) : 
+                                     print ("Quickfix against internal Error")
+                                     #print("Output : \n" + p_output)
+                                     #print("Errors: \n" + p_errors)
                                 # create done file
                                 fdone = open(vidpath + os.sep + donefileName,"w")
                                 fdone.write(str(strftime("%Y-%m-%d %H:%M:%S", gmtime())))
-                                if (program_option_verbose) :                                    
-                                    print("output:\n" + p_output)
+                                #if (program_option_verbose) :                                    
+                                    #print("output:\n" + p_output)
                                 fdone.close()
                                 # append to logfile
                                 fdone = open(vidpath + os.sep + logfileName,"a")
                                 fdone.write(str(strftime("%Y-%m-%d %H:%M:%S", gmtime())) + "   -   " + vidFile + "\n")
                                 fdone.close()
+                                # add 1 to vidcounter that vidcounter >= vidMaxCount pulls off
+                                vidCounter = vidCounter + 1
                             elif (retcode == 3) :
                                 print ("Looks like you'r out of GoogleQuota :)")
-                                print("Output : \n" + p_output)
-                                print("Errors: \n" + p_errors)
+                                #print("Output : \n" + p_output)
+                                #print("Errors: \n" + p_errors)
                                 exit(3)
                             else :
                                 print ("Retcode invalid")
-                                print (p_errors)
+                                #print (p_errors)
                                 exit(retcode)
+                
             else :
-                print ("kein file " + vidFile)
+                print ("kein Video-file " + vidFile)
     else :                  ## alles andere ignon
         continue
 if (config_post_shutdown == True) :

@@ -5,6 +5,7 @@ from tkinter import *
 from tkinter import messagebox
 import tkinter.font as tkFont
 import argparse
+import sys
 
 
 # dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -166,7 +167,7 @@ def ShowNewVidFrame(vidpath, vidfile) :
     TitleAddy = StringVar("")    
     print ("searching for " + FileGetNameWoExt(vidfile))
     if (FileGetNameWoExt(vidfile) in titles_dict) :
-        print("found it " + titles_dict[FileGetNameWoExt(vidfile)])
+        print("found Title: " + titles_dict[FileGetNameWoExt(vidfile)])
         TitleAddy.set(titles_dict[FileGetNameWoExt(vidfile)])    
     
     
@@ -241,9 +242,10 @@ titles_file_name = "Titles.txt"
 titles_dict = {}
 globStr = ""
 workpath = ""
-vidpath = ""
+vidPath = ""
 playlist = ""
 config_auto_clear = False;
+config_titles_only_flag = False;
 
 # --- Src
 
@@ -252,27 +254,29 @@ config_auto_clear = False;
 print ("Anzahl Args : " + str(len(sys.argv)))
 
 parser = argparse.ArgumentParser(description='Nex Youtube Upload Helper GUI - Helpsection for ARGS')
-parser.add_argument('--clear', dest='clearFlag', nargs='?', default="false", help='No delete confirmation // auto yes clear for target usbstick')
-parser.add_argument('--verbose', dest='verboseFlag', nargs='?', default="false", help='verbose mode on')
+parser.add_argument('--clear', dest='clearFlag', action='store_true', help='No delete confirmation // auto yes clear for target usbstick')
+parser.add_argument('--verbose', dest='verboseFlag', action='store_true', help='verbose mode on')
+parser.add_argument('--only-with-titles', dest='titlesFlag', action='store_true', help='if and only if there is an entry in Titles.txt - show it')
 
 args = parser.parse_args()
 
 # Args sind in args.<destname von oben> z.b args.name
 
-program_option_verbose = False
+# copy flags to config
+config_auto_clear = args.clearFlag
+config_verbose = args.verboseFlag
+config_titles_only_flag = args.titlesFlag
 
-# we have to search for that arg which will be defaulted to false -> If its present its None
-
-if (args.clearFlag == None) :
+if (config_auto_clear == True) :
     print("Autoclear is active -> no confirmation will be needed to delete files")
-    config_auto_clear = True
-else :
-    config_auto_clear = False
-if (args.verboseFlag == None) :
-    config_verbose = True # Not used up to now
-else :
-    config_verbose = False  # Not used up to now
 
+if (config_titles_only_flag == True) :
+    print("using Titles.txt files only mode")
+
+if (config_verbose == True) :
+    print("verbose mode on")
+
+################################
 
 # Arbeitsordner finden
 workpath = ReadWorkpath()
@@ -291,52 +295,55 @@ for dir in os.listdir(workpath):     ## dir = der aktuelle Upload ordner !
         print ("file ?")         
         continue           
     elif os.path.isdir(curDir):  ## Ordner gefunden ! Jetzt nach Files suchen        
-        vidpath = curDir        
-        print ("Folder: " + vidpath)
+        vidPath = curDir
+        print ("Folder: " + vidPath)
         ## Step 1 : Suche nach playlist file        
-        playlist = ReadPlaylist(vidpath)
+        playlist = ReadPlaylist(vidPath)
         if (playlist != "") : 
             print("playlist: " + playlist)
         ## Step 2 : Search for Titels.txt
         titles_dict = {} # reset db   
-        ReadTitlesFile(vidpath, titles_dict)
+        ReadTitlesFile(vidPath, titles_dict)
         # print (titles_dict)
                 
         ## Step 3 : Suche nach VidFiles   
-        for vidFile in os.listdir(vidpath):            
-            if os.path.isfile(vidpath + os.sep + vidFile):   ## file gefunden!
+        for vidFile in os.listdir(vidPath):
+            if os.path.isfile(vidPath + os.sep + vidFile):   ## file gefunden!
                 # print ("File : " + vidFile)   
                 if (not(IsVidFile(vidFile))) :
-                    continue        ## ignore non vid files 
+                    continue        ## ignore non vid files
+                if ((config_titles_only_flag == True) and (not(FileGetNameWoExt(vidFile) in titles_dict)) ):
+                    print ("skip File - no Title: " + vidFile)
+                    continue        ## ignore vid files with no title in Titles.txt
+
+                print("Videofile: " + vidFile)
+                # Step 3 .. Search for nyu- upload settings file
+                nyufileName = vidFile + ".nyu"
+                donefileName = vidFile + ".done"
+                if (not(os.path.exists(vidPath + os.sep + nyufileName))) :     # Gibt es kein Setting file ?
+                     ShowNewVidFrame(vidPath, vidFile)
                 else :
-                    print("Videofile: " + vidFile)
-                    # Step 3 .. Search for nyu- upload settings file
-                    nyufileName = vidFile + ".nyu"
-                    donefileName = vidFile + ".done"
-                    if (not(os.path.exists(vidpath + os.sep + nyufileName))) :     # Gibt es kein Setting file ?                         
-                         ShowNewVidFrame(vidpath, vidFile)                                      
-                    else :
-                        # nyu file existiert .. evtl auch schon ein done file ?
-                        if (os.path.exists(vidpath + os.sep + donefileName)) :
-                            # ask user if everything should be deleted
-                            result = False
-                            # check if autoclear is set
-                            if (config_auto_clear == True) :                                
-                                result = True
-                            else :
-                                rootWindow = tkinter.Tk()
-                                center(rootWindow)
-                                rootWindow.withdraw()
-                                result = messagebox.askyesno("Delete?",vidpath + os.sep + vidFile + " can be deleted .. it is already uploaded" , icon='warning')
-                                rootWindow.quit()
-                                rootWindow.destroy()
-                                 
-                            if result == True :
-                                os.remove(vidpath + os.sep + vidFile)
-                                os.remove(vidpath + os.sep + nyufileName)
-                                os.remove(vidpath + os.sep + donefileName)
-                            else :
-                                pass                            
+                    # nyu file existiert .. evtl auch schon ein done file ?
+                    if (os.path.exists(vidPath + os.sep + donefileName)) :
+                        # ask user if everything should be deleted
+                        result = False
+                        # check if autoclear is set
+                        if (config_auto_clear == True) :
+                            result = True
+                        else :
+                            rootWindow = tkinter.Tk()
+                            center(rootWindow)
+                            rootWindow.withdraw()
+                            result = messagebox.askyesno("Delete?", vidPath + os.sep + vidFile + " can be deleted .. it is already uploaded", icon='warning')
+                            rootWindow.quit()
+                            rootWindow.destroy()
+
+                        if result == True :
+                            os.remove(vidPath + os.sep + vidFile)
+                            os.remove(vidPath + os.sep + nyufileName)
+                            os.remove(vidPath + os.sep + donefileName)
+                        else :
+                            pass
             else :
                 print ("kein file " + vidFile)            
     else :                  ## alles andere ignon
