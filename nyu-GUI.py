@@ -73,7 +73,7 @@ def ReadPlaylist(path) :
     return ret
 
 def ReadTitlesFile(path, titles_dict):
-    titlesFilepath = path + os.sep + titles_file_name
+    titlesFilepath = path + os.sep + TITLES_FILE_NAME
     if (os.path.exists(titlesFilepath)) :
         # read everything
         file = open(titlesFilepath, 'r', encoding="utf-8")
@@ -83,9 +83,10 @@ def ReadTitlesFile(path, titles_dict):
             #prepare line
             curline = line.strip().replace('\n','').replace('\r','')
             if len(curline) > 0 :
-                x = line.split(" - ")
+                x = curline.split(" - ")
                 titles_dict[x[0]] = x[1] 
-            continue        
+            continue
+        # print (titles_dict)         
     return
 
 def convertStringForYoutube(inputStr) :
@@ -165,7 +166,7 @@ def ShowNewVidFrame(vidpath, vidfile) :
     strVidNumber = " #" + str(FileGetNameWoExt(vidfile))
     # add dynamic title addy
     TitleAddy = StringVar("")    
-    print ("searching for " + FileGetNameWoExt(vidfile))
+    # print ("searching for " + FileGetNameWoExt(vidfile))
     if (FileGetNameWoExt(vidfile) in titles_dict) :
         print("found Title: " + titles_dict[FileGetNameWoExt(vidfile)])
         TitleAddy.set(titles_dict[FileGetNameWoExt(vidfile)])    
@@ -226,7 +227,17 @@ def ShowNewVidFrame(vidpath, vidfile) :
     eTitleAddy.focus()
     # text.focus()        
     center(window)
-    window.mainloop()        
+    if (config_auto_title_mode == False) :
+        window.mainloop()
+    else :        
+        WriteNyuFile(
+                 window,
+                 nyuFileName, 
+                 vidpath, 
+                 strBaseTitle + strVidNumber, 
+                 TitleAddy.get(),
+                 text.get('5.0', 'end-1c')
+                 )
     return    
     
 
@@ -234,11 +245,11 @@ def ShowNewVidFrame(vidpath, vidfile) :
 # ---------------------------------------- Main ------------------------------------------------------------------
 # --- Settings
 
-allowedVidFileExt = ['mp4','flv','ts','m2ts']
+allowedVidFileExt = ['mp4','flv','ts','m2ts','mkv']
 
 # --- glob. Vars
 
-titles_file_name = "Titles.txt"
+TITLES_FILE_NAME = "Titles.txt"
 titles_dict = {}
 globStr = ""
 workpath = ""
@@ -257,6 +268,7 @@ parser = argparse.ArgumentParser(description='Nex Youtube Upload Helper GUI - He
 parser.add_argument('--clear', dest='clearFlag', action='store_true', help='No delete confirmation // auto yes clear for target usbstick')
 parser.add_argument('--verbose', dest='verboseFlag', action='store_true', help='verbose mode on')
 parser.add_argument('--only-with-titles', dest='titlesFlag', action='store_true', help='if and only if there is an entry in Titles.txt - show it')
+parser.add_argument('--atm', dest='titlesATM', action='store_true', help='if and only if there is an entry in Titles.txt - autocreate nyu file')
 
 args = parser.parse_args()
 
@@ -266,6 +278,11 @@ args = parser.parse_args()
 config_auto_clear = args.clearFlag
 config_verbose = args.verboseFlag
 config_titles_only_flag = args.titlesFlag
+config_auto_title_mode = args.titlesATM
+
+if (config_auto_title_mode == True) :
+    config_titles_only_flag = True # set this to true for this mode !
+    print ("Autotitle mode active")
 
 if (config_auto_clear == True) :
     print("Autoclear is active -> no confirmation will be needed to delete files")
@@ -274,7 +291,8 @@ if (config_titles_only_flag == True) :
     print("using Titles.txt files only mode")
 
 if (config_verbose == True) :
-    print("verbose mode on")
+    print("verbose mode on")    
+
 
 ################################
 
@@ -296,26 +314,30 @@ for dir in os.listdir(workpath):     ## dir = der aktuelle Upload ordner !
         continue           
     elif os.path.isdir(curDir):  ## Ordner gefunden ! Jetzt nach Files suchen        
         vidPath = curDir
+        print ("###################################################################################")
         print ("Folder: " + vidPath)
         ## Step 1 : Suche nach playlist file        
         playlist = ReadPlaylist(vidPath)
         if (playlist != "") : 
             print("playlist: " + playlist)
         ## Step 2 : Search for Titels.txt
-        titles_dict = {} # reset db   
-        ReadTitlesFile(vidPath, titles_dict)
+        titles_dict = {} # reset db
+        if (os.path.exists(vidPath + os.sep + TITLES_FILE_NAME)) :
+            ReadTitlesFile(vidPath, titles_dict)
         # print (titles_dict)
-                
-        ## Step 3 : Suche nach VidFiles   
+
+
+         ## Step 3 : Suche nach VidFiles
         for vidFile in os.listdir(vidPath):
             if os.path.isfile(vidPath + os.sep + vidFile):   ## file gefunden!
-                # print ("File : " + vidFile)   
+                # print ("File : " + vidFile)
                 if (not(IsVidFile(vidFile))) :
                     continue        ## ignore non vid files
                 if ((config_titles_only_flag == True) and (not(FileGetNameWoExt(vidFile) in titles_dict)) ):
                     print ("skip File - no Title: " + vidFile)
                     continue        ## ignore vid files with no title in Titles.txt
-
+                
+                print("---") # seperator for files
                 print("Videofile: " + vidFile)
                 # Step 3 .. Search for nyu- upload settings file
                 nyufileName = vidFile + ".nyu"
